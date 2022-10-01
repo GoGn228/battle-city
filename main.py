@@ -139,8 +139,17 @@ class Player(pygame.sprite.Sprite):
         self.speed=5
         self.dir="top"
 
+    def shoot(self):
+        pos=[0, 0]
+        bullet = Player_bullet(player_bullet, pos)
+        #all_sprites.add(bullet)
+        bullet_group.add(bullet)
+
     def update(self):
         key=pygame.key.get_pressed()
+        pos=[0, 0]
+        if key[pygame.K_SPACE]:
+            player.shoot()
         if key[pygame.K_a]:
             self.image=pygame.transform.rotate(player_image, 90)
             self.rect.x-=self.speed
@@ -224,6 +233,20 @@ class Enemy(pygame.sprite.Sprite):
             elif self.dir=="right":
                 self.dir="left"
 
+class Player_bullet(pygame.sprite.Sprite):
+    def __init__(self, image, pos):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = image
+        self.rect = self.image.get_rect()
+        self.rect.bottom = player.rect.bottom
+        self.rect.centerx = player.rect.right
+        self.speedy = -10
+
+    def update(self):
+        self.rect.y += self.speedy
+        if self.rect.bottom < 0:
+            self.kill()
+
 class Flag(pygame.sprite.Sprite):
     def __init__(self, image, pos):
         pygame.sprite.Sprite.__init__(self)
@@ -241,6 +264,7 @@ iron_group=pygame.sprite.Group()
 water_group=pygame.sprite.Group()
 player_group=pygame.sprite.Group()
 enemy_group=pygame.sprite.Group()
+bullet_group=pygame.sprite.Group()
 flag_group=pygame.sprite.Group()
 player=Player(player_image, (560, 600))
 player_group.add(player)
