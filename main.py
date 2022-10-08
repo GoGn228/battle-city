@@ -3,6 +3,11 @@ import os
 import sys
 import random
 
+file=r'sound/bleach-blich-tema-ichigo.mp3'
+pygame.mixer.init()
+track = pygame.mixer.music.load(file)
+pygame.mixer.music.play()
+pygame.font.init()
 pygame.init()
 current_path=os.path.dirname(__file__)
 os.chdir(current_path)
@@ -28,10 +33,14 @@ def lvlGame():
     enemy_group.draw(sc)
     player_group.update()
     player_group.draw(sc)
-    bush_group.update()
-    bush_group.draw(sc)
     flag_group.update()
     flag_group.draw(sc)
+    bullet_player_group.update()
+    bullet_player_group.draw(sc)
+    bullet_enemy_group.update()
+    bullet_enemy_group.draw(sc)
+    bush_group.update()
+    bush_group.draw(sc)
     pygame.display.update()
 
 def drawMaps(nameFile):
@@ -84,6 +93,8 @@ class Brick(pygame.sprite.Sprite):
                 player.rect.top=self.rect.bottom
             elif player.dir=="down":
                 player.rect.bottom=self.rect.top
+        pygame.sprite.groupcollide(bullet_player_group, brick_group, True, True)
+        pygame.sprite.groupcollide(bullet_enemy_group, brick_group, True, True)
 
 class Bush(pygame.sprite.Sprite):
     def __init__(self, image, pos):
@@ -110,6 +121,8 @@ class Iron(pygame.sprite.Sprite):
                 player.rect.top=self.rect.bottom
             elif player.dir=="down":
                 player.rect.bottom=self.rect.top
+        pygame.sprite.groupcollide(bullet_player_group, iron_group, True, False)
+        pygame.sprite.groupcollide(bullet_enemy_group, iron_group, True, False)
 
 class Water(pygame.sprite.Sprite):
     def __init__(self, image, pos):
@@ -138,18 +151,15 @@ class Player(pygame.sprite.Sprite):
         self.rect.y=pos[1]
         self.speed=5
         self.dir="top"
-
-    def shoot(self):
-        pos=[0, 0]
-        bullet = Player_bullet(player_bullet, pos)
-        #all_sprites.add(bullet)
-        bullet_group.add(bullet)
+        self.timer_shot=0
 
     def update(self):
+        self.timer_shot+=1
         key=pygame.key.get_pressed()
-        pos=[0, 0]
-        if key[pygame.K_SPACE]:
-            player.shoot()
+        if key[pygame.K_SPACE] and self.timer_shot>40:
+            bullet=Bullet_player(player_bullet, self.rect.center, self.dir)
+            bullet_player_group.add(bullet)
+            self.timer_shot=0
         if key[pygame.K_a]:
             self.image=pygame.transform.rotate(player_image, 90)
             self.rect.x-=self.speed
@@ -166,7 +176,7 @@ class Player(pygame.sprite.Sprite):
             self.image=pygame.transform.rotate(player_image, 180)
             self.rect.y+=self.speed
             self.dir="down"
-
+        pygame.sprite.groupcollide(bullet_enemy_group, player_group, True, True)
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, image, pos):
         pygame.sprite.Sprite.__init__(self)
@@ -177,9 +187,15 @@ class Enemy(pygame.sprite.Sprite):
         self.speed=1
         self.dir="up"
         self.timer_move=0
+        self.timer_shot = 0
 
     def update(self):
-        self.timer_move+=1
+        self.timer_move += 1
+        self.timer_shot += 1
+        if self.timer_shot/FPS>2:
+            bullet_enemy = Bullet_enemy(enemy_bullet, self.rect.center, self.dir)
+            bullet_enemy_group.add(bullet_enemy)
+            self.timer_shot = 0
         if self.timer_move/FPS>2:
             if random.randint(1, 4)==1:
                 self.dir="up"
@@ -232,20 +248,47 @@ class Enemy(pygame.sprite.Sprite):
                 self.dir="right"
             elif self.dir=="right":
                 self.dir="left"
+        pygame.sprite.groupcollide(bullet_player_group, enemy_group, True, True)
 
-class Player_bullet(pygame.sprite.Sprite):
-    def __init__(self, image, pos):
+class Bullet_player(pygame.sprite.Sprite):
+    def __init__(self, image, pos, dir):
         pygame.sprite.Sprite.__init__(self)
-        self.image = image
-        self.rect = self.image.get_rect()
-        self.rect.bottom = player.rect.bottom
-        self.rect.centerx = player.rect.right
-        self.speedy = -10
+        self.image=image
+        self.rect=self.image.get_rect()
+        self.rect.x=pos[0]
+        self.rect.y=pos[1]
+        self.speed=5
+        self.dir=dir
 
     def update(self):
-        self.rect.y += self.speedy
-        if self.rect.bottom < 0:
-            self.kill()
+        if self.dir=="up":
+            self.rect.y -= self.speed
+        elif self.dir=="down":
+            self.rect.y += self.speed
+        elif self.dir=="right":
+            self.rect.x += self.speed
+        elif self.dir=="left":
+            self.rect.x -= self.speed
+
+class Bullet_enemy(pygame.sprite.Sprite):
+    def __init__(self, image, pos, dir):
+        pygame.sprite.Sprite.__init__(self)
+        self.image=image
+        self.rect=self.image.get_rect()
+        self.rect.x=pos[0]
+        self.rect.y=pos[1]
+        self.speed=5
+        self.dir=dir
+
+    def update(self):
+        if self.dir=="up":
+            self.rect.y -= self.speed
+        elif self.dir=="down":
+            self.rect.y += self.speed
+        elif self.dir=="right":
+            self.rect.x += self.speed
+        elif self.dir=="left":
+            self.rect.x -= self.speed
 
 class Flag(pygame.sprite.Sprite):
     def __init__(self, image, pos):
@@ -254,6 +297,11 @@ class Flag(pygame.sprite.Sprite):
         self.rect=self.image.get_rect()
         self.rect.x=pos[0]
         self.rect.y=pos[1]
+    def update(self):
+        pygame.sprite.groupcollide(bullet_player_group, flag_group, True, True)
+        pygame.sprite.groupcollide(bullet_enemy_group, flag_group, True, True)
+
+
 
 
 
@@ -264,11 +312,16 @@ iron_group=pygame.sprite.Group()
 water_group=pygame.sprite.Group()
 player_group=pygame.sprite.Group()
 enemy_group=pygame.sprite.Group()
-bullet_group=pygame.sprite.Group()
+bullet_player_group=pygame.sprite.Group()
+bullet_enemy_group=pygame.sprite.Group()
 flag_group=pygame.sprite.Group()
 player=Player(player_image, (560, 600))
 player_group.add(player)
 
+#f1 = pygame.font.Font(None, 36)
+#text1 = f1.render('GAME OVER', True,(180, 0, 0))
+
+#sc.blit(text1, (600, 400))
 
 drawMaps('1.txt')
 while True:
