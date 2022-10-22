@@ -2,6 +2,7 @@ import pygame
 import os
 import sys
 import random
+import abc
 
 file=r'sound/tanchiki-tanchiki-mp3.mp3'
 pygame.mixer.init()
@@ -239,31 +240,73 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.x=pos[0]
         self.rect.y=pos[1]
         self.speed=1
-        self.dir="up"
+        self.dir="top"
         self.timer_move=0
         self.timer_shot = 0
+        self.trigger = False
+        self.atack_dir = " "
+        self.collid = False
+        self.flag = False
+        self.flag_timer = 0
 
     def update(self):
+        d=((self.rect.center[0] - player.rect.center[0]) **2
+           + (self.rect.center[1] - player.rect.center[1]) ** 2) ** (1/2)
+        if d<300:
+            self.trigger = True
+        else:
+            self.trigger = False
+        if self.trigger and self.collid == False:
+
+            pos_player = player.rect.center
+            pos = self.rect.center
+            if pos[0] - pos_player[0] > 0:
+                if pos[1] - pos_player[1] > 0:
+                    self.atack_dir = ("left", "top")
+                else:
+                    self.atack_dir = ("left", "bottom")
+            else:
+                if pos[1] - pos_player[1] > 0:
+                    self.atack_dir = ("right", "top")
+                else:
+                    self.atack_dir = ("right", "bottom")
+            if self.atack_dir == ("left", "top"):
+                self.dir = "left"
+                if abs(pos[0] - pos_player[0]) < 20:
+                    self.dir = "top"
+            elif self.atack_dir == ("left", "bottom"):
+                self.dir = "left"
+                if abs(pos[0] - pos_player[0]) < 20:
+                    self.dir = "bottom"
+            elif self.atack_dir == ("right", "top"):
+                self.dir = "right"
+                if abs(pos[0] - pos_player[0]) < 20:
+                    self.dir = "top"
+            elif self.atack_dir == ("right", "bottom"):
+                self.dir = "right"
+                if abs(pos[0] - pos_player[0]) < 20:
+                    self.dir = "bottom"
         self.timer_move += 1
         self.timer_shot += 1
         if self.timer_shot/FPS>2:
             bullet_enemy = Bullet_enemy(enemy_bullet, self.rect.center, self.dir)
             bullet_enemy_group.add(bullet_enemy)
             self.timer_shot = 0
-        if self.timer_move/FPS>2:
-            if random.randint(1, 4)==1:
-                self.dir="up"
-            elif random.randint(1, 4)==2:
-                self.dir="down"
-            elif random.randint(1, 4)==3:
-                self.dir="left"
-            elif random.randint(1, 4)==4:
-                self.dir="right"
-            self.timer_move = 0
-        if self.dir=="up":
+        if self.trigger == False:
+            if self.timer_move/FPS>2:
+                if random.randint(1, 4)==1:
+                    self.dir="top"
+                elif random.randint(1, 4)==2:
+                    self.dir="bottom"
+                elif random.randint(1, 4)==3:
+                    self.dir="left"
+                elif random.randint(1, 4)==4:
+                    self.dir="right"
+                self.timer_move = 0
+        if self.dir=="top":
             self.image=pygame.transform.rotate(enemy_image, 0)
             self.rect.y-=self.speed
-        elif self.dir=="down":
+        elif self.dir=="bottom":
             self.image=pygame.transform.rotate(enemy_image, 180)
             self.rect.y+=self.speed
         elif self.dir=="left":
@@ -272,36 +315,33 @@ class Enemy(pygame.sprite.Sprite):
         elif self.dir=="right":
             self.image=pygame.transform.rotate(enemy_image, -90)
             self.rect.x+=self.speed
-        if pygame.sprite.spritecollide(self, brick_group, False):
+        if pygame.sprite.spritecollide(self, brick_group, False)\
+                or pygame.sprite.spritecollide(self, iron_group, False)\
+                or pygame.sprite.spritecollide(self, water_group, False):
             self.timer_move=0
-            if self.dir=="up":
-                self.dir="down"
-            elif self.dir=="down":
-                self.dir="up"
+            self.collid = True
+            if self.trigger == True:
+                self.flag = True
+            if self.dir=="top":
+                self.dir="bottom"
+            elif self.dir=="bottom":
+                self.dir="top"
             elif self.dir=="left":
                 self.dir="right"
             elif self.dir=="right":
                 self.dir="left"
-        elif pygame.sprite.spritecollide(self, iron_group, False):
-            self.timer_move=0
-            if self.dir=="up":
-                self.dir="down"
-            elif self.dir=="down":
-                self.dir="up"
-            elif self.dir=="left":
-                self.dir="right"
-            elif self.dir=="right":
-                self.dir="left"
-        elif pygame.sprite.spritecollide(self, water_group, False):
-            self.timer_move=0
-            if self.dir=="up":
-                self.dir="down"
-            elif self.dir=="down":
-                self.dir="up"
-            elif self.dir=="left":
-                self.dir="right"
-            elif self.dir=="right":
-                self.dir="left"
+        else:
+            self.collid = False
+
+        if self.flag:
+            self.trigger = False
+            self.flag_timer += 1
+        if self.flag_timer / FPS > 2:
+            self.flag=False
+            self.trigger = True
+            self.flag_timer = 0
+        print(self.flag,self.flag_timer,self.trigger)
+
 
 class Bullet_player(pygame.sprite.Sprite):
     def __init__(self, image, pos, dir):
@@ -358,9 +398,9 @@ class Bullet_enemy(pygame.sprite.Sprite):
         self.dir=dir
 
     def update(self):
-        if self.dir=="up":
+        if self.dir=="top":
             self.rect.y -= self.speed
-        elif self.dir=="down":
+        elif self.dir=="bottom":
             self.rect.y += self.speed
         elif self.dir=="right":
             self.rect.x += self.speed
@@ -381,7 +421,7 @@ class Flag(pygame.sprite.Sprite):
         if pygame.sprite.groupcollide(bullet_enemy_group, flag_group, True, True):
             lvl="menu"
 
-class restart():
+def restart():
     global bullet_enemy_group
     global water_group, brick_group, bush_group, iron_group
     global player_group, enemy_group, flag_group, bullet_player_group, player
