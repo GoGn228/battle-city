@@ -3,7 +3,10 @@ import os
 import sys
 import random
 import abc
+import datetime
 
+current_path = os.path.dirname(__file__)
+os.chdir(current_path)
 file=r'sound/tanchiki-tanchiki-mp3.mp3'
 pygame.mixer.init()
 track = pygame.mixer.music.load(file)
@@ -16,16 +19,18 @@ os.chdir(current_path)
 WIDTH=1200
 HEIGHT=800
 FPS=60
-record=0
 sc=pygame.display.set_mode((WIDTH, HEIGHT))
 clock=pygame.time.Clock()
 lvl="menu"
+lvl_game = 1
+score = 0
+font = pygame.font.SysFont("arial", 40)
 
 from load import *
 
 
 def startMenu():
-    global lvl
+    global lvl, records_list
     sc.blit(menu_image, (0, 0))
     sc.blit(start_image, (100, 200))
     sc.blit(records_image, (100, 300))
@@ -38,22 +43,16 @@ def startMenu():
                 drawMaps("1.txt")
                 lvl="Game"
             elif 300<pos_mouse[1]<375:
-                lvl="record"
-                sc.fill("black")
-                f1 = pygame.font.Font(None, 36)
-                text1 = f1.render("Ваш рекорд: 0", 1, (180, 180, 180))
-                sc.blit(text1, (500, 400))
-                sc.blit(back_image, (1100, 50))
-                pos_mouse_2 = pygame.mouse.get_pos()
-                if pygame.mouse.get_pressed()[0]:
-                    if 1100 < pos_mouse_2[1] < 1150:
-                        print("jnkm")
-                        if 50 < pos_mouse_2[1] < 100:
-                            lvl="menu"
-                            print("hdvbn")
-            elif 400<pos_mouse[1]<475:
-                pygame.quit()
-                sys.exit()
+                lvl="score"
+                with open("score.txt", "r", encoding="utf-8") as file:
+                    records_list = []
+                    for i in range(5):
+                        records_list.append(file.readline().replace("\n", ""))
+            #elif 400<pos_mouse[1]<475:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
     pygame.display.update()
 
 def lvlGame():
@@ -109,6 +108,20 @@ def drawMaps(nameFile):
               flag=Flag(flag_image, pos)
               flag_group.add(flag)
 
+def recordsMenu():
+
+    sc.fill("black")
+    text_font = font.render(records_list[0], True, "white")
+    sc.blit(text_font, (50, 50))
+    text_font = font.render(records_list[1], True, "white")
+    sc.blit(text_font, (50, 90))
+    text_font = font.render(records_list[2], True, "white")
+    sc.blit(text_font, (50, 130))
+    text_font = font.render(records_list[3], True, "white")
+    sc.blit(text_font, (50, 170))
+    text_font = font.render(records_list[4], True, "white")
+    sc.blit(text_font, (50, 210))
+    pygame.display.update()
 
 
 class Brick(pygame.sprite.Sprite):
@@ -192,6 +205,13 @@ class Player(pygame.sprite.Sprite):
         self.anime=False
 
     def update(self):
+
+        global lvl_game
+        print(lvl_game)
+        if len(enemy_group) == 0:
+            lvl_game += 1
+            restart()
+            drawMaps(str(lvl_game) + ".txt")
         self.anime = False
         self.timer_shot+=1
         key=pygame.key.get_pressed()
@@ -230,7 +250,14 @@ class Player(pygame.sprite.Sprite):
                 self.timer_anime=0
         if pygame.sprite.groupcollide(bullet_enemy_group, player_group, True, True):
             global lvl
-            lvl="menu"
+            global score
+
+            with open("score.txt", "a", encoding="utf-8") as file:
+                data = str(datetime.datetime.today())[:-7]
+                file.write(str(score).ljust(10, ".") + data + "\n")
+            score = 0
+            lvl = "menu"
+            lvl_game = 1
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, image, pos):
@@ -340,8 +367,6 @@ class Enemy(pygame.sprite.Sprite):
             self.flag=False
             self.trigger = True
             self.flag_timer = 0
-        print(self.flag,self.flag_timer,self.trigger)
-
 
 class Bullet_player(pygame.sprite.Sprite):
     def __init__(self, image, pos, dir):
@@ -367,11 +392,11 @@ class Bullet_player(pygame.sprite.Sprite):
         elif self.dir=="left":
             self.rect.x -= self.speed
         if pygame.sprite.spritecollide(self, enemy_group, True):
-            global record
+            global score
             self.anime=True
             self.speed=0
             self.boom = True
-            record+=1
+            score+=100
         if self.anime:
             self.timer_anime+=1
             if self.timer_anime/FPS>0.1:
@@ -415,10 +440,22 @@ class Flag(pygame.sprite.Sprite):
         self.rect.x=pos[0]
         self.rect.y=pos[1]
     def update(self):
-        global lvl
+        global lvl, score,lvl_game
         if pygame.sprite.groupcollide(bullet_player_group, flag_group, True, True):
+            with open("score.txt", "a", encoding="utf-8") as file:
+                data = str(datetime.datetime.today())[:-7]
+                file.write(str(score).ljust(10, ".") + data + "\n")
+            score = 0
+            lvl = "menu"
+            lvl_game = 1
             lvl="menu"
         if pygame.sprite.groupcollide(bullet_enemy_group, flag_group, True, True):
+            with open("score.txt", "a", encoding="utf-8") as file:
+                data = str(datetime.datetime.today())[:-7]
+                file.write(str(score).ljust(10, ".") + data + "\n")
+            score = 0
+            lvl = "menu"
+            lvl_game = 1
             lvl="menu"
 
 def restart():
@@ -451,4 +488,6 @@ while True:
         lvlGame()
     elif lvl=="menu":
         startMenu()
+    elif lvl == "score":
+        recordsMenu()
     clock.tick(FPS)
